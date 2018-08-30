@@ -4,7 +4,7 @@ anchors:
   - &node_job
     working_directory: ~/expo
     docker:
-      - image: circleci/node:8
+      - image: circleci/node:10
 
   - &default_env_vars
     YARN_CACHE_FOLDER: ~/.cache/yarn
@@ -14,8 +14,7 @@ anchors:
       name: Set up the environment
       command: |
         # Clone the submodules
-        git submodule init
-        git submodule update --remote
+        git submodule update --init --remote --depth 1
 
         # Trust all of the .envrc files for direnv
         find . -name '.envrc' -exec direnv allow {} \;
@@ -26,7 +25,7 @@ anchors:
       command: |
         # Run `yarn install` from the workspace root to install all of the workspaces' dependencies
         # including each other if there are co-dependencies
-        yarn install
+        yarn install --network-concurrency 1
 
   - &restore_yarn_cache
     restore_cache:
@@ -61,13 +60,17 @@ jobs:
     steps:
       - checkout
       - *set_up_environment
-      - *restore_yarn_cache
+      #- *restore_yarn_cache
       - *install_workspace_dependencies
       - *save_yarn_cache
       - run:
           name: Lint
           working_directory: ~/expo/packages/expo
           command: yarn lint --max-warnings 0
+      - run:
+          name: Unit tests
+          working_directory: ~/expo/packages/expo
+          command: yarn jest --maxWorkers 2
 
   babel_preset:
     <<: *node_job
